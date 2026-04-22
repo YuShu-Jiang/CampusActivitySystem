@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+
+{% block title %}用户登录 - 校园活动管理系统{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="text-center mb-4">
+        <h2><i class="fas fa-sign-in-alt me-2"></i>用户登录</h2>
+        <p class="text-muted">请输入您的账号和密码</p>
+    </div>
+
+    <form id="loginForm">
+        <div class="mb-3">
+            <label for="username" class="form-label">用户名/学号</label>
+            <div class="input-group">
+                <span class="input-group-text"><i class="fas fa-user"></i></span>
+                <input type="text" class="form-control" id="username" name="username" required placeholder="请输入用户名或学号">
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <label for="password" class="form-label">密码</label>
+            <div class="input-group">
+                <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                <input type="password" class="form-control" id="password" name="password" required placeholder="请输入密码">
+                <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                    <i class="fas fa-eye"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="d-grid gap-2 mb-3">
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="fas fa-sign-in-alt me-2"></i>登录
+            </button>
+        </div>
+
+        <div class="text-center">
+            <p class="mb-2">还没有账号？<a href="/register/">立即注册</a></p>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 密码显示/隐藏切换
+    document.getElementById('togglePassword').addEventListener('click', function() {
+        const passwordInput = document.getElementById('password');
+        const icon = this.querySelector('i');
+
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        } else {
+            passwordInput.type = 'password';
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        }
+    });
+
+    // 登录表单提交
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+
+        // 禁用按钮，显示加载状态
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>登录中...';
+        submitBtn.disabled = true;
+
+        // 调用登录API
+        axios.post(`${API_BASE_URL}/auth/login/`, {
+            username: username,
+            password: password
+        })
+        .then(response => {
+            console.log('登录响应数据:', response.data);
+            
+            // 保存token和用户信息
+            localStorage.setItem('access_token', response.data.access);
+            localStorage.setItem('refresh_token', response.data.refresh);
+            
+            // 直接使用登录响应中的用户信息和角色信息
+            if (response.data.user_info) {
+                localStorage.setItem('user_info', JSON.stringify(response.data.user_info));
+                console.log('保存用户信息:', response.data.user_info);
+            }
+            
+            // 如果有角色信息，也保存起来
+            if (response.data.role_info) {
+                localStorage.setItem('role_info', JSON.stringify(response.data.role_info));
+                console.log('保存角色信息:', response.data.role_info);
+            }
+            
+            showMessage('success', '登录成功！正在跳转...');
+
+            // 减少延迟时间
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 300);
+        })
+        .catch(error => {
+            console.error('登录失败:', error);
+
+            let errorMessage = '登录失败，请检查用户名和密码';
+            if (error.response && error.response.data) {
+                if (error.response.data.detail) {
+                    errorMessage = error.response.data.detail;
+                }
+            }
+
+            showMessage('danger', errorMessage);
+
+            // 恢复按钮状态
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        });
+    });
+
+    // 登录成功后的跳转逻辑已经在登录表单提交处理中实现
+    // 移除页面加载时的自动重定向，避免影响登录流程
+});
+</script>
+{% endblock %}

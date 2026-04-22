@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}校园活动管理系统{% endblock %}</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome 图标 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- 自定义CSS -->
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3a0ca3;
+            --success-color: #4cc9f0;
+            --warning-color: #f8961e;
+            --danger-color: #f94144;
+            --light-color: #f8f9fa;
+            --dark-color: #212529;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            padding-top: 76px;
+            background-color: #f5f7fb;
+        }
+
+        .navbar-brand {
+            font-weight: 700;
+            color: var(--primary-color) !important;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--secondary-color);
+            border-color: var(--secondary-color);
+        }
+
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .hero-section {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            padding: 80px 0;
+            border-radius: 0 0 30px 30px;
+            margin-bottom: 60px;
+        }
+
+        .feature-icon {
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            color: white;
+            font-size: 28px;
+        }
+
+        .footer {
+            background-color: var(--dark-color);
+            color: white;
+            padding: 40px 0;
+            margin-top: 60px;
+        }
+
+        .activity-status {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            z-index: 1;
+        }
+
+        .login-container {
+            max-width: 600px;
+            margin: 80px auto;
+            padding: 40px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 角色徽章样式 */
+        .role-badge {
+            font-size: 0.7rem;
+            padding: 3px 8px;
+            border-radius: 10px;
+        }
+
+        .role-student {
+            background-color: #4cc9f0;
+            color: white;
+        }
+
+        .role-organizer {
+            background-color: #f8961e;
+            color: white;
+        }
+
+        .role-admin {
+            background-color: #f94144;
+            color: white;
+        }
+
+        /* 导航菜单分隔线 */
+        .nav-divider {
+            border-left: 1px solid rgba(0, 0, 0, 0.1);
+            height: 24px;
+            margin: 0 6px;
+        }
+
+        /* 管理菜单高亮 */
+        .nav-item.admin-menu a {
+            color: var(--primary-color) !important;
+            font-weight: 500;
+        }
+
+        /* 调整导航菜单间距，确保一行显示 */
+        .navbar-nav .nav-link {
+            padding: 0.5rem 0.5rem;
+        }
+
+        /* 确保导航菜单不换行 */
+        .navbar-nav {
+            flex-wrap: nowrap !important;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+
+        /* 隐藏滚动条 */
+        .navbar-nav::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* 调整导航栏容器宽度 */
+        .navbar .container-fluid {
+            max-width: 100%;
+        }
+
+        /* 消息提示样式 */
+        .alert.position-fixed {
+            top: 20px;
+            right: 20px;
+            z-index: 1050;
+            min-width: 300px;
+        }
+
+        /* 修复下拉菜单动画 */
+        .dropdown-menu {
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white fixed-top shadow-sm">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-school me-2"></i>校园活动系统
+            </a>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto flex-nowrap" style="gap: 0.5rem;">
+                    <!-- 通用菜单 - 所有人都能看到 -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="/"><i class="fas fa-home me-1"></i>首页</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/activities/"><i class="fas fa-calendar-alt me-1"></i>活动中心</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/checkin/"><i class="fas fa-qrcode me-1"></i>扫码签到</a>
+                    </li>
+
+                    <!-- 学生专属菜单 -->
+                    <li class="nav-item student-menu" style="display: none;">
+                        <a class="nav-link" href="/my-enrollments/"><i class="fas fa-list-check me-1"></i>我的报名</a>
+                    </li>
+
+                    <!-- 组织者专属菜单 -->
+                    <li class="nav-item organizer-menu" style="display: none;">
+                        <a class="nav-link" href="/my-activities/"><i class="fas fa-tasks me-1"></i>我的活动</a>
+                    </li>
+                    <li class="nav-item organizer-menu" style="display: none;">
+                        <a class="nav-link" href="/attendance-management/"><i class="fas fa-clipboard-check me-1"></i>考勤管理</a>
+                    </li>
+                    <li class="nav-item organizer-menu" style="display: none;">
+                        <a class="nav-link" href="/activity-analytics/"><i class="fas fa-chart-bar me-1"></i>数据统计</a>
+                    </li>
+
+                    <!-- 管理员专属菜单 -->
+                    <li class="nav-item admin-menu" style="display: none;">
+                        <span class="nav-divider"></span>
+                    </li>
+                    <li class="nav-item admin-menu" style="display: none;">
+                        <a class="nav-link" href="/admin/"><i class="fas fa-shield-alt me-1"></i>管理员面板</a>
+                    </li>
+                </ul>
+
+                <ul class="navbar-nav">
+                    <li class="nav-item dropdown" id="user-info" style="display: none; position: relative; overflow: visible;">
+                        <a class="nav-link dropdown-toggle" href="javascript:void(0)" id="userDropdown" role="button" style="display: inline-flex; align-items: center; gap: 0.5rem;">
+                            <i class="fas fa-user me-1"></i>
+                            <span id="username-display">用户</span>
+                            <span id="user-role-badge" class="role-badge ms-2"></span>
+                        </a>
+                        <!-- 简化的下拉菜单结构，使用内联样式确保可见性 -->
+                        <div id="dropdownMenuContent" style="display: none; position: absolute; top: 100%; right: 0; z-index: 999999; background: white; border: 1px solid #ddd; border-radius: 4px; min-width: 180px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); padding: 8px 0;">
+                            <div style="padding: 0; margin: 0; list-style: none;">
+                                <div style="margin: 0; padding: 0;">
+                                    <a href="/profile/" style="display: block; padding: 10px 16px; text-decoration: none; color: #333; white-space: nowrap;">
+                                        <i class="fas fa-user-circle me-2"></i>个人中心
+                                    </a>
+                                </div>
+                                <div style="margin: 8px 0; height: 1px; background-color: #eee;"></div>
+                                <div style="margin: 0; padding: 0;">
+                                    <a href="javascript:void(0)" id="logout-btn" style="display: block; padding: 10px 16px; text-decoration: none; color: #dc3545; white-space: nowrap;">
+                                        <i class="fas fa-sign-out-alt me-2"></i>退出登录
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </li>
+
+                    <span id="auth-buttons">
+                        <a class="btn btn-outline-primary me-2" href="/login/"><i class="fas fa-sign-in-alt me-1"></i>登录</a>
+                        <a class="btn btn-primary" href="/register/"><i class="fas fa-user-plus me-1"></i>注册</a>
+                    </span>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容 -->
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="footer">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-4">
+                    <h5><i class="fas fa-school me-2"></i>校园活动系统</h5>
+                    <p>基于Python+Django开发的校园活动数字化管理平台</p>
+                </div>
+                <div class="col-md-4">
+                    <h5>快速链接</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="/" class="text-light"><i class="fas fa-chevron-right me-1"></i>首页</a></li>
+                        <li><a href="/activities/" class="text-light"><i class="fas fa-chevron-right me-1"></i>活动中心</a></li>
+                        <li><a href="/checkin/" class="text-light"><i class="fas fa-chevron-right me-1"></i>扫码签到</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <h5>项目信息</h5>
+                    <p>毕业设计项目</p>
+                    <p>学生：蒋东升 | 学号：2402010330</p>
+                    <p>导师：魏正松 | 安徽三联学院</p>
+                </div>
+            </div>
+            <hr class="bg-light">
+            <div class="text-center">
+                <p class="mb-0">© 2025 校园活动报名与出勤签到系统 | 版本 1.0.0</p>
+                <p class="mb-0 text-muted" id="current-role-info"></p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <!-- Axios（用于API调用） -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/axios/1.6.0/axios.min.js"></script>
+
+    <!-- 全局JavaScript -->
+    <script>
+        // 全局配置
+        const API_BASE_URL = 'http://127.0.0.1:8000/api';
+
+        // 数据缓存机制
+        const CACHE = {
+            // 设置缓存
+            set: function(key, data, expirationMinutes = 5) {
+                const item = {
+                    data: data,
+                    timestamp: Date.now(),
+                    expiration: expirationMinutes * 60 * 1000
+                };
+                localStorage.setItem(`cache_${key}`, JSON.stringify(item));
+            },
+            
+            // 获取缓存
+            get: function(key) {
+                const itemStr = localStorage.getItem(`cache_${key}`);
+                if (!itemStr) return null;
+                
+                const item = JSON.parse(itemStr);
+                if (Date.now() - item.timestamp > item.expiration) {
+                    localStorage.removeItem(`cache_${key}`);
+                    return null;
+                }
+                
+                return item.data;
+            },
+            
+            // 清除特定缓存
+            remove: function(key) {
+                localStorage.removeItem(`cache_${key}`);
+            },
+            
+            // 清除所有缓存
+            clear: function() {
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key.startsWith('cache_')) {
+                        localStorage.removeItem(key);
+                        i--; // 因为删除后索引会变化
+                    }
+                }
+            },
+            
+            // 生成API请求的缓存键
+            generateKey: function(url, params = {}) {
+                const paramStr = Object.keys(params)
+                    .sort()
+                    .map(k => `${k}=${encodeURIComponent(params[k])}`)
+                    .join('&');
+                return `${url}?${paramStr}`;
+            }
+        };
+
+        // 性能优化工具函数
+        const PerformanceUtils = {
+            // 防抖函数
+            debounce: function(func, delay) {
+                let timeoutId;
+                return function() {
+                    const context = this;
+                    const args = arguments;
+                    clearTimeout(timeoutId);
+                    timeoutId = setTimeout(() => {
+                        func.apply(context, args);
+                    }, delay);
+                };
+            },
+            
+            // 节流函数
+            throttle: function(func, limit) {
+                let inThrottle;
+                return function() {
+                    const context = this;
+                    const args = arguments;
+                    if (!inThrottle) {
+                        func.apply(context, args);
+                        inThrottle = true;
+                        setTimeout(() => inThrottle = false, limit);
+                    }
+                };
+            }
+        };
+
+        // 获取Token
+        function getToken() {
+            return localStorage.getItem('access_token');
+        }
+
+        // 简化的下拉菜单实现 - 确保内容可见
+        function initDropdownMenu() {
+            const userDropdown = document.getElementById('userDropdown');
+            const dropdownMenu = document.getElementById('dropdownMenuContent');
+            const userInfo = document.getElementById('user-info');
+            
+            if (userDropdown && dropdownMenu && userInfo) {
+                console.log('使用原生JavaScript初始化下拉菜单');
+                
+                // 确保所有父容器不裁剪内容
+                let parent = userInfo;
+                while (parent && parent !== document.body) {
+                    parent.style.overflow = 'visible';
+                    parent.style.overflowY = 'visible';
+                    parent.style.overflowX = 'visible';
+                    parent = parent.parentElement;
+                }
+                
+                // 确保用户信息区域有正确的定位
+                userInfo.style.position = 'relative';
+                userInfo.style.overflow = 'visible';
+                
+                // 移除旧的事件监听器
+                userDropdown.onclick = null;
+                
+                // 添加悬停效果
+                const menuLinks = dropdownMenu.querySelectorAll('a');
+                menuLinks.forEach(link => {
+                    link.addEventListener('mouseenter', function() {
+                        this.style.backgroundColor = '#f8f9fa';
+                    });
+                    link.addEventListener('mouseleave', function() {
+                        this.style.backgroundColor = 'transparent';
+                    });
+                });
+                
+                // 添加点击事件处理
+                userDropdown.onclick = function(e) {
+                    e.preventDefault();
+                    e.stopPropagation(); // 阻止事件冒泡
+                    console.log('下拉菜单点击事件触发');
+                    
+                    // 直接切换显示状态
+                    const currentDisplay = dropdownMenu.style.display;
+                    const isVisible = currentDisplay === 'block';
+                    
+                    // 切换当前下拉菜单的显示状态
+                    dropdownMenu.style.display = isVisible ? 'none' : 'block';
+                    console.log('下拉菜单显示状态:', dropdownMenu.style.display);
+                    console.log('下拉菜单高度:', dropdownMenu.offsetHeight);
+                    console.log('下拉菜单内容:', dropdownMenu.innerHTML);
+                };
+                
+                // 添加点击文档其他地方关闭下拉菜单的功能
+                document.addEventListener('click', function(e) {
+                    if (!userDropdown.contains(e.target) && !dropdownMenu.contains(e.target)) {
+                        dropdownMenu.style.display = 'none';
+                    }
+                });
+                
+                console.log('下拉菜单初始化完成');
+                return true;
+            }
+            return false;
+        }
+
+        // 检查登录状态
+        let authCheckCompleted = false;
+        let authChecking = false;
+    
+        function checkAuthStatus() {
+            // 防止重复调用
+            if (authChecking || authCheckCompleted) {
+                return;
+            }
+            
+            authChecking = true;
+            
+            // 检查认证状态，优化性能
+            const token = getToken();
+            const userInfo = localStorage.getItem('user_info');
+            const roleInfo = localStorage.getItem('role_info');
+            
+            if (token && userInfo) {
+                // 显示用户信息，隐藏登录按钮
+                document.getElementById('auth-buttons').style.display = 'none';
+                document.getElementById('user-info').style.display = 'block';
+
+                try {
+                    const user = JSON.parse(userInfo);
+                    document.getElementById('username-display').textContent = user.username || user.name || '用户';
+                    
+                    // 首先尝试使用本地存储的角色信息
+                    if (roleInfo) {
+                        const roleData = JSON.parse(roleInfo);
+                        const roleBadge = document.getElementById('user-role-badge');
+                        roleBadge.textContent = roleData.role_display || getRoleText(roleData.role);
+                        roleBadge.className = `role-badge role-${roleData.role} ms-2`;
+                        
+                        // 设置导航菜单
+                        setupNavigationByRole(roleData);
+                        
+                        // 初始化下拉菜单
+                        initDropdownMenu();
+                        
+                        // 标记认证检查完成
+                        authCheckCompleted = true;
+                        authChecking = false;
+                    } else {
+                        // 仅在没有本地角色信息时调用API
+                        getRoleInfo(token, user);
+                    }
+                } catch (e) {
+                    console.error('解析用户信息失败:', e);
+                    // 解析失败时重新获取角色信息
+                    getRoleInfo(token, JSON.parse(userInfo));
+                }
+            } else {
+                // 显示登录按钮，隐藏用户信息
+                document.getElementById('auth-buttons').style.display = 'block';
+                document.getElementById('user-info').style.display = 'none';
+                // 重置导航菜单
+                resetNavigationMenus();
+                
+                // 标记认证检查完成
+                authCheckCompleted = true;
+                authChecking = false;
+            }
+        }
+        
+        // 获取角色信息
+        function getRoleInfo(token, user) {
+            // 调用API获取最新的角色信息
+            axios.get(`${API_BASE_URL}/auth/get-role/`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                const roleData = response.data;
+                const roleBadge = document.getElementById('user-role-badge');
+                roleBadge.textContent = roleData.role_display || getRoleText(roleData.role);
+                roleBadge.className = `role-badge role-${roleData.role} ms-2`;
+
+                // 保存角色信息到本地存储
+                localStorage.setItem('role_info', JSON.stringify(roleData));
+
+                // 设置导航菜单
+                setupNavigationByRole(roleData);
+                
+                // 初始化下拉菜单
+                initDropdownMenu();
+                
+                // 标记认证检查完成
+                authCheckCompleted = true;
+                authChecking = false;
+            })
+            .catch(error => {
+                console.error('获取角色信息失败:', error);
+                // 处理获取角色失败的情况
+                const roleBadge = document.getElementById('user-role-badge');
+                roleBadge.textContent = '未知角色';
+                roleBadge.className = 'role-badge role-student ms-2';
+                
+                // 设置默认导航菜单（学生）
+                setupNavigationByRole({ role: 'student' });
+                
+                // 初始化下拉菜单
+                initDropdownMenu();
+                
+                // 标记认证检查完成
+                authCheckCompleted = true;
+                authChecking = false;
+            });
+        }
+        
+        // 重新检查登录状态的函数（用于权限变更后）
+        function recheckAuthStatus() {
+            // 重置认证完成标志
+            authCheckCompleted = false;
+            authChecking = false;
+            // 重新检查登录状态和权限
+            checkAuthStatus();
+        }
+
+        // 根据用户角色设置导航菜单
+        function setupNavigationByRole(roleData) {
+            resetNavigationMenus();
+
+            const role = roleData.role || (roleData.profile && roleData.profile.role);
+
+            if (role) {
+                const roleMenus = document.querySelectorAll(`.${role}-menu`);
+                roleMenus.forEach(menu => {
+                    menu.style.display = 'block';
+                });
+
+                const dropdownMenus = document.querySelectorAll(`.${role}-menu-dropdown`);
+                dropdownMenus.forEach(menu => {
+                    menu.style.display = 'block';
+                });
+
+                document.getElementById('current-role-info').textContent =
+                    `当前角色：${roleData.role_display || getRoleText(role)} | 权限：${getRolePermissions(role)}`;
+
+                // 管理员可以看到组织者的菜单
+                if (role === 'admin') {
+                    const organizerMenus = document.querySelectorAll('.organizer-menu');
+                    organizerMenus.forEach(menu => {
+                        menu.style.display = 'block';
+                    });
+                }
+            }
+        }
+
+        // 重置所有角色专属菜单
+        function resetNavigationMenus() {
+            // 隐藏所有角色专属菜单
+            ['student', 'organizer', 'admin'].forEach(role => {
+                const roleMenus = document.querySelectorAll(`.${role}-menu`);
+                roleMenus.forEach(menu => {
+                    menu.style.display = 'none';
+                });
+
+                const dropdownMenus = document.querySelectorAll(`.${role}-menu-dropdown`);
+                dropdownMenus.forEach(menu => {
+                    menu.style.display = 'none';
+                });
+            });
+
+            document.getElementById('current-role-info').textContent = '';
+        }
+
+        // 获取角色显示文本
+        function getRoleText(role) {
+            switch(role) {
+                case 'student': return '学生';
+                case 'organizer': return '活动组织者';
+                case 'admin': return '系统管理员';
+                default: return role;
+            }
+        }
+
+        // 获取角色权限描述
+        function getRolePermissions(role) {
+            switch(role) {
+                case 'student': return '浏览活动、报名、签到';
+                case 'organizer': return '创建活动、管理考勤';
+                case 'admin': return '全系统管理权限';
+                default: return '基础权限';
+            }
+        }
+
+        // 检查页面访问权限
+        function checkPageAccess(requiredRoles = []) {
+            const userInfo = localStorage.getItem('user_info');
+            const roleInfo = localStorage.getItem('role_info');
+            
+            if (!userInfo && !roleInfo) {
+                return false;
+            }
+
+            try {
+                let userRole = '';
+                
+                // 优先使用角色信息
+                if (roleInfo) {
+                    const roleData = JSON.parse(roleInfo);
+                    userRole = roleData.role;
+                } else if (userInfo) {
+                    const user = JSON.parse(userInfo);
+                    userRole = user.profile && user.profile.role;
+                }
+
+                if (!userRole) {
+                    return false;
+                }
+
+                // 管理员可以访问所有页面
+                if (userRole === 'admin') {
+                    return true;
+                }
+
+                // 检查用户角色是否在允许的列表中
+                return requiredRoles.includes(userRole);
+            } catch (e) {
+                console.error('检查页面权限失败:', e);
+                return false;
+            }
+        }
+
+        // 页面权限拦截示例（可以在具体页面中使用）
+        function requireRole(requiredRoles, redirectUrl = '/') {
+            if (!checkPageAccess(requiredRoles)) {
+                showMessage('warning', '您没有访问此页面的权限');
+                setTimeout(() => {
+                    window.location.href = redirectUrl;
+                }, 1500);
+                return false;
+            }
+            return true;
+        }
+
+        // 获取CSRF Token
+        function getCSRFToken() {
+            const name = 'csrftoken';
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // 显示消息
+        function showMessage(type, message) {
+            // 移除之前的消息
+            const existingAlerts = document.querySelectorAll('.alert.position-fixed');
+            existingAlerts.forEach(alert => alert.remove());
+
+            // 创建消息元素
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+
+            // 添加到页面
+            document.body.appendChild(alertDiv);
+
+            // 5秒后自动消失
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM已加载，开始检查认证状态');
+            
+            // 检查认证状态
+            checkAuthStatus();
+
+            // 登出按钮
+            const logoutBtn = document.getElementById('logout-btn');
+            console.log('Logout button found:', logoutBtn);
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('Logout button clicked');
+                    
+                    // 清除所有认证信息
+                    localStorage.removeItem('access_token');
+                    localStorage.removeItem('refresh_token');
+                    localStorage.removeItem('user_info');
+                    localStorage.removeItem('role_info');
+                    CACHE.clear();
+                    
+                    // 强制刷新认证状态标记
+                    authCheckCompleted = false;
+                    
+                    showMessage('success', '已成功退出登录');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1000);
+                });
+            }
+
+            // 为所有导航链接添加点击检查（防止未授权访问）
+            document.querySelectorAll('a.nav-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    const href = this.getAttribute('href');
+
+                    // 根据链接判断需要的角色权限
+                    if (href.includes('/admin/') || href.includes('/system-settings')) {
+                        if (!checkPageAccess(['admin'])) {
+                            e.preventDefault();
+                            showMessage('warning', '此功能仅限管理员使用');
+                            return false;
+                        }
+                    }
+
+                    if (href.includes('/my-activities') || href.includes('/attendance-management') ||
+                        href.includes('/organizer-dashboard') || href.includes('/activity-analytics')) {
+                        if (!checkPageAccess(['organizer', 'admin'])) {
+                            e.preventDefault();
+                            showMessage('warning', '此功能仅限活动组织者使用');
+                            return false;
+                        }
+                    }
+
+                    if (href.includes('/student-dashboard') || href.includes('/my-enrollments')) {
+                        if (!checkPageAccess(['student'])) {
+                            e.preventDefault();
+                            showMessage('warning', '此功能仅限学生使用');
+                            return false;
+                        }
+                    }
+
+                    return true;
+                });
+            });
+
+            // 监听页面可见性变化，当页面从后台切换到前台时重新检查认证状态
+            document.addEventListener('visibilitychange', function() {
+                if (!document.hidden) {
+                    // 页面从后台切换到前台，重置认证状态检查
+                    authCheckCompleted = false;
+                    checkAuthStatus();
+                }
+            });
+        });
+
+        // 监听存储变化（当其他标签页修改localStorage时）
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'access_token' || e.key === 'user_info' || e.key === 'role_info') {
+                // 重置认证状态检查
+                authCheckCompleted = false;
+                checkAuthStatus();
+            }
+        });
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

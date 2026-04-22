@@ -1,0 +1,637 @@
+{% extends 'base.html' %}
+
+{% block title %}数据统计 - 校园活动管理系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin-bottom: 2rem;
+    }
+
+    .filter-section {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        transition: transform 0.2s ease;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .overview-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .overview-card.green {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    }
+
+    .overview-card.orange {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .overview-card.blue {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+
+    .overview-card.yellow {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- 管理员数据统计标题和筛选 -->
+            <div id="adminStatsHeader" style="display: none;">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1><i class="fas fa-chart-bar me-2"></i>数据统计</h1>
+                </div>
+
+                <!-- 日期范围筛选 -->
+                <div class="filter-section">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <select class="form-select" id="dateRangeFilter">
+                                <option value="7">最近7天</option>
+                                <option value="30">最近30天</option>
+                                <option value="90">最近90天</option>
+                                <option value="all">全部时间</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <button class="btn btn-primary w-100" onclick="loadStatsBasedOnRole()">
+                                <i class="fas fa-search me-1"></i>查看统计数据
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 活动组织者数据统计标题 -->
+            <div id="organizerStatsHeader" style="display: none;">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1><i class="fas fa-chart-bar me-2"></i>我的活动统计</h1>
+                </div>
+            </div>
+
+            <!-- 平台概览（仅管理员可见） -->
+            <div id="platformOverview">
+                <!-- 全平台宏观数据概览 -->
+                <h4 class="mb-3"><i class="fas fa-globe me-2"></i>全平台宏观数据</h4>
+                <div class="row g-4 mb-5">
+                    <div class="col-md-3">
+                        <div class="overview-card">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-white-50">用户总量</h6>
+                                    <h2 class="mb-0" id="totalUsers">0</h2>
+                                </div>
+                                <div class="bg-white rounded-circle p-3 text-primary">
+                                    <i class="fas fa-users fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="overview-card green">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-white-50">活动总量</h6>
+                                    <h2 class="mb-0" id="totalActivities">0</h2>
+                                </div>
+                                <div class="bg-white rounded-circle p-3 text-success">
+                                    <i class="fas fa-calendar-alt fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="overview-card orange">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-white-50">报名总量</h6>
+                                    <h2 class="mb-0" id="totalEnrollments">0</h2>
+                                </div>
+                                <div class="bg-white rounded-circle p-3 text-warning">
+                                    <i class="fas fa-clipboard-list fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="overview-card blue">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-white-50">签到总量</h6>
+                                    <h2 class="mb-0" id="totalCheckins">0</h2>
+                                </div>
+                                <div class="bg-white rounded-circle p-3 text-info">
+                                    <i class="fas fa-clipboard-check fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+
+                <!-- 图表区域 -->
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card mb-5">
+                            <div class="card-header">
+                                <h3 class="card-title mb-0"><i class="fas fa-chart-bar me-2"></i>活动类别分布</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container">
+                                    <canvas id="categoryChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card mb-5">
+                            <div class="card-header">
+                                <h3 class="card-title mb-0"><i class="fas fa-chart-bar me-2"></i>用户角色分布</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container">
+                                    <canvas id="roleChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card mb-5">
+                            <div class="card-header">
+                                <h3 class="card-title mb-0"><i class="fas fa-chart-pie me-2"></i>活动状态分布</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container">
+                                    <canvas id="statusChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card mb-5">
+                            <div class="card-header">
+                                <h3 class="card-title mb-0"><i class="fas fa-chart-pie me-2"></i>签到方式分布</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container">
+                                    <canvas id="checkinMethodChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 组织者概览（仅活动组织者可见） -->
+            <div id="organizerOverview" style="display: none;">
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <select class="form-select" id="organizerDateFilter">
+                                    <option value="all">全部时间</option>
+                                    <option value="7">最近7天</option>
+                                    <option value="30">最近30天</option>
+                                    <option value="90">最近90天</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <select class="form-select" id="organizerActivityFilter">
+                                    <option value="all">全部活动</option>
+                                    <!-- 活动选项将通过JavaScript动态加载 -->
+                                </select>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <button class="btn btn-primary w-100" onclick="loadOrganizerStats()">
+                                    <i class="fas fa-search me-1"></i>筛选
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row g-4 mb-5">
+                    <div class="col-md-4">
+                        <div class="overview-card">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-white-50">活动总数</h6>
+                                    <h2 class="mb-0" id="organizerTotalActivities">0</h2>
+                                </div>
+                                <div class="bg-white rounded-circle p-3 text-primary">
+                                    <i class="fas fa-calendar-alt fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="overview-card green">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-white-50">报名人数</h6>
+                                    <h2 class="mb-0" id="organizerTotalParticipants">0</h2>
+                                </div>
+                                <div class="bg-white rounded-circle p-3 text-success">
+                                    <i class="fas fa-clipboard-list fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="overview-card blue">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-white-50">签到人数</h6>
+                                    <h2 class="mb-0" id="organizerTotalCheckins">0</h2>
+                                </div>
+                                <div class="bg-white rounded-circle p-3 text-info">
+                                    <i class="fas fa-clipboard-check fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 报名统计详情 -->
+                <div class="card mb-5">
+                    <div class="card-header">
+                        <h3 class="card-title mb-0"><i class="fas fa-list me-2"></i>报名统计详情</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-md-4">
+                                <h4 id="registeredEnrollments">0</h4>
+                                <p class="text-muted">已报名人数</p>
+                            </div>
+                            <div class="col-md-4">
+                                <h4 id="cancelledEnrollments">0</h4>
+                                <p class="text-muted">已取消人数</p>
+                            </div>
+                            <div class="col-md-4">
+                                <h4 id="enrollmentRate">0%</h4>
+                                <p class="text-muted">报名取消率</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+            </div>
+
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let statusChart = null;
+    let roleChart = null;
+    let categoryChart = null;
+    let checkinMethodChart = null;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        checkAuthStatus();
+        setTimeout(function() {
+            loadStatsBasedOnRole();
+        }, 100);
+    });
+
+    // 根据用户角色加载统计数据
+    function loadStatsBasedOnRole() {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            window.location.href = '/login/';
+            return;
+        }
+
+        // 获取用户角色
+        const roleInfo = localStorage.getItem('role_info');
+        let role = 'student';
+        if (roleInfo) {
+            try {
+                const roleData = JSON.parse(roleInfo);
+                role = roleData.role || 'student';
+            } catch (e) {
+                console.error('解析角色信息失败:', e);
+            }
+        }
+
+        // 根据角色显示不同的内容
+        if (role === 'admin') {
+            // 管理员显示全平台数据
+            document.getElementById('adminStatsHeader').style.display = 'block';
+            document.getElementById('organizerStatsHeader').style.display = 'none';
+            document.getElementById('platformOverview').style.display = 'block';
+            document.getElementById('organizerOverview').style.display = 'none';
+            loadPlatformStats();
+        } else if (role === 'organizer') {
+            // 活动组织者显示自己的活动数据
+            document.getElementById('adminStatsHeader').style.display = 'none';
+            document.getElementById('organizerStatsHeader').style.display = 'block';
+            document.getElementById('platformOverview').style.display = 'none';
+            document.getElementById('organizerOverview').style.display = 'block';
+            // 加载活动选项
+            loadOrganizerActivities();
+            // 加载统计数据
+            loadOrganizerStats();
+        } else {
+            // 普通用户跳转到首页
+            window.location.href = '/';
+        }
+    }
+
+    // 加载活动选项到下拉框
+    function loadOrganizerActivities() {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            return;
+        }
+
+        axios.get(`${API_BASE_URL}/activities/`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            params: {
+                organizer: 'me'
+            }
+        })
+        .then(response => {
+            const activityFilter = document.getElementById('organizerActivityFilter');
+            // 清空现有选项（保留"全部活动"选项）
+            while (activityFilter.options.length > 1) {
+                activityFilter.remove(1);
+            }
+            // 添加活动选项
+            response.data.results.forEach(activity => {
+                const option = document.createElement('option');
+                option.value = activity.id;
+                option.textContent = activity.title;
+                activityFilter.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('加载活动列表失败:', error);
+        });
+    }
+
+    // 加载全平台统计数据
+    function loadPlatformStats() {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            window.location.href = '/login/';
+            return;
+        }
+
+        const dateRange = document.getElementById('dateRangeFilter').value;
+
+        axios.get(`${API_BASE_URL}/activities/platform-stats/`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            params: {
+                date_range: dateRange
+            }
+        })
+        .then(response => {
+            const data = response.data;
+            updateOverview(data.overview);
+            updateCharts(data.charts);
+            updateStatusStats(data.status_stats);
+            updateRoleStats(data.role_stats);
+        })
+        .catch(error => {
+            console.error('加载统计数据失败:', error);
+            if (error.response && error.response.status === 403) {
+                showMessage('danger', '无权查看全平台统计数据，只有管理员可以查看');
+            } else {
+                showMessage('danger', '加载统计数据失败，请检查网络连接');
+            }
+        });
+    }
+
+    // 加载活动组织者统计数据
+    function loadOrganizerStats() {
+        console.log('开始加载活动组织者统计数据');
+        const token = localStorage.getItem('access_token');
+        console.log('Token:', token ? '存在' : '不存在');
+        if (!token) {
+            window.location.href = '/login/';
+            return;
+        }
+
+        // 获取筛选条件
+        const dateRange = document.getElementById('organizerDateFilter').value;
+        const activityId = document.getElementById('organizerActivityFilter').value;
+        console.log('筛选条件:', { dateRange, activityId });
+
+        // 构建查询参数
+        const params = {};
+        if (dateRange !== 'all') {
+            params.date_range = dateRange;
+        }
+        if (activityId !== 'all') {
+            params.activity_id = activityId;
+        }
+
+        const url = `${API_BASE_URL}/activities/analytics/`;
+        console.log('API URL:', url);
+        console.log('请求参数:', params);
+
+        axios.get(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            params: params
+        })
+        .then(response => {
+            console.log('API响应成功:', response);
+            const data = response.data;
+            console.log('响应数据:', data);
+            // 组织者只能看到自己的活动数据
+            updateOrganizerStats(data);
+        })
+        .catch(error => {
+            console.error('加载统计数据失败:', error);
+            console.error('错误响应:', error.response);
+            console.error('错误状态:', error.response?.status);
+            console.error('错误数据:', error.response?.data);
+            const errorMessage = error.response?.data?.error || `加载统计数据失败，错误状态: ${error.response?.status || '未知'}`;
+            showMessage('danger', errorMessage);
+        });
+    }
+
+    // 更新活动组织者统计数据
+    function updateOrganizerStats(data) {
+        // 这里需要根据实际的API返回格式进行调整
+        if (data && data.stats) {
+            document.getElementById('organizerTotalActivities').textContent = data.stats.total_activities || 0;
+            document.getElementById('organizerTotalParticipants').textContent = data.stats.total_participants || 0;
+            // 计算签到人数
+            let totalCheckins = 0;
+            if (data.details && Array.isArray(data.details)) {
+                data.details.forEach(activity => {
+                    totalCheckins += activity.checkin_count || 0;
+                });
+            }
+            document.getElementById('organizerTotalCheckins').textContent = totalCheckins;
+        }
+    }
+
+    // 更新概览数据
+    function updateOverview(overview) {
+        document.getElementById('totalUsers').textContent = overview.total_users;
+        document.getElementById('totalActivities').textContent = overview.total_activities;
+        document.getElementById('totalEnrollments').textContent = overview.total_enrollments;
+        document.getElementById('totalCheckins').textContent = overview.total_checkins;
+
+        document.getElementById('registeredEnrollments').textContent = overview.registered_enrollments;
+        document.getElementById('cancelledEnrollments').textContent = overview.cancelled_enrollments;
+
+        const enrollmentRate = overview.total_enrollments > 0
+            ? (overview.cancelled_enrollments / overview.total_enrollments * 100).toFixed(2)
+            : 0;
+        document.getElementById('enrollmentRate').textContent = enrollmentRate + '%';
+    }
+
+    // 更新图表
+    function updateCharts(charts) {
+        // 活动状态分布饼图
+        const statusCtx = document.getElementById('statusChart').getContext('2d');
+        if (statusChart) {
+            statusChart.destroy();
+        }
+        statusChart = new Chart(statusCtx, {
+            type: 'pie',
+            data: {
+                labels: charts.status_distribution.labels,
+                datasets: [{
+                    data: charts.status_distribution.data,
+                    backgroundColor: ['#28a745', '#17a2b8', '#ffc107', '#dc3545', '#6c757d'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+
+        // 用户角色分布饼图
+        const roleCtx = document.getElementById('roleChart').getContext('2d');
+        if (roleChart) {
+            roleChart.destroy();
+        }
+        roleChart = new Chart(roleCtx, {
+            type: 'pie',
+            data: {
+                labels: charts.role_distribution.labels,
+                datasets: [{
+                    data: charts.role_distribution.data,
+                    backgroundColor: ['#007bff', '#28a745', '#ffc107'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+
+        // 活动类别分布柱状图
+        const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+        if (categoryChart) {
+            categoryChart.destroy();
+        }
+        categoryChart = new Chart(categoryCtx, {
+            type: 'bar',
+            data: {
+                labels: charts.category_distribution.labels,
+                datasets: [{
+                    label: '活动数量',
+                    data: charts.category_distribution.data,
+                    backgroundColor: '#4facfe',
+                    borderColor: '#4facfe',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+
+        // 签到方式分布饼图
+        const checkinMethodCtx = document.getElementById('checkinMethodChart').getContext('2d');
+        if (checkinMethodChart) {
+            checkinMethodChart.destroy();
+        }
+        checkinMethodChart = new Chart(checkinMethodCtx, {
+            type: 'pie',
+            data: {
+                labels: charts.checkin_method_distribution.labels,
+                datasets: [{
+                    data: charts.checkin_method_distribution.data,
+                    backgroundColor: ['#17a2b8', '#ffc107'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    }
+
+
+</script>
+{% endblock %}

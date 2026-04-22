@@ -1,0 +1,515 @@
+{% extends 'base.html' %}
+
+{% block title %}个人中心 - 校园活动管理系统{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-4 mb-4">
+        <!-- 个人信息卡片 -->
+        <div class="card">
+            <div class="card-body text-center">
+                <div class="mb-3">
+                    <div class="avatar-circle mb-3" style="width: 100px; height: 100px; background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); border-radius: 50%; margin: 0 auto; display: flex; align-items: center; justify-content: center; color: white; font-size: 36px;">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <h4 id="profile-username">加载中...</h4>
+                    <p class="text-muted mb-1" id="profile-role">角色：加载中...</p>
+                    <p class="text-muted" id="profile-college">学院：加载中...</p>
+                </div>
+                
+
+            </div>
+        </div>
+        
+        <!-- 快速操作 -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-bolt me-2"></i>快速操作</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary" onclick="window.location.href='/activities/'">
+                        <i class="fas fa-calendar-alt me-2"></i>浏览活动
+                    </button>
+                    <button class="btn btn-outline-success" id="createActivityBtnProfile" style="display: none;">
+                        <i class="fas fa-plus me-2"></i>发布活动
+                    </button>
+                    <button class="btn btn-outline-info" id="generateQrCodeBtn" style="display: none;">
+                        <i class="fas fa-qrcode me-2"></i>生成签到码
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-8">
+        <!-- 我的报名 -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-calendar-check me-2"></i>我的报名</h5>
+                <span class="badge bg-primary" id="enrollment-badge">0个活动</span>
+            </div>
+            <div class="card-body">
+                <div id="my-enrollments">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                        <p class="mt-2 text-muted">正在加载报名数据...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 我的签到 -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-qrcode me-2"></i>我的签到记录</h5>
+                <span class="badge bg-success" id="attendance-badge">0次签到</span>
+            </div>
+            <div class="card-body">
+                <div id="my-attendance">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-success" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                        <p class="mt-2 text-muted">正在加载签到数据...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 生成二维码模态框 -->
+<div class="modal fade" id="qrCodeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-qrcode me-2"></i>生成签到二维码</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="mb-3">
+                    <label for="selectActivity" class="form-label">选择活动</label>
+                    <select class="form-select" id="selectActivity">
+                        <option value="">请选择活动...</option>
+                    </select>
+                </div>
+                
+                <div id="qrCodeContainer" style="display: none;">
+                    <h5 id="qrActivityTitle" class="mb-3"></h5>
+                    <div id="qrCodeImage" class="mb-3"></div>
+                    <p class="text-muted small mb-2">有效时间：<span id="qrExpiryTime">10分钟</span></p>
+                    <p class="text-muted small">令牌：<span id="qrToken" class="font-monospace"></span></p>
+                    <a href="#" id="qrDownloadLink" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-download me-1"></i>下载二维码
+                    </a>
+                </div>
+                
+                <div id="qrLoading" class="text-center py-4" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">生成中...</span>
+                    </div>
+                    <p class="mt-2 text-muted">正在生成二维码...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    checkAuthStatus();
+    setTimeout(function() {
+        const token = localStorage.getItem('access_token');
+        const userInfo = localStorage.getItem('user_info');
+        
+        if (!token || !userInfo) {
+            showMessage('warning', '请先登录');
+            window.location.href = '/login/?redirect=/profile/';
+            return;
+        }
+        
+        // 加载用户信息
+        loadUserProfile();
+        
+        // 加载报名数据
+        loadMyEnrollments();
+        
+        // 加载签到数据
+        loadMyAttendance();
+        
+        // 检查用户角色，显示相应按钮
+        try {
+            const user = JSON.parse(userInfo);
+            const profile = user.profile;
+            
+            if (profile && (profile.role === 'organizer' || profile.role === 'admin')) {
+                document.getElementById('createActivityBtnProfile').style.display = 'block';
+                document.getElementById('generateQrCodeBtn').style.display = 'block';
+                
+                // 生成二维码按钮
+                document.getElementById('generateQrCodeBtn').addEventListener('click', function() {
+                    loadOrganizerActivities();
+                    const modal = new bootstrap.Modal(document.getElementById('qrCodeModal'));
+                    modal.show();
+                });
+                
+                // 发布活动按钮
+                document.getElementById('createActivityBtnProfile').addEventListener('click', function() {
+                    window.location.href = '/activities/#createActivityBtn';
+                });
+            }
+        } catch (e) {
+            console.error('解析用户信息失败:', e);
+        }
+    }, 100);
+    
+    // 选择活动变化事件
+    document.getElementById('selectActivity').addEventListener('change', function() {
+        const activityId = this.value;
+        if (activityId) {
+            generateQRCode(activityId);
+        } else {
+            document.getElementById('qrCodeContainer').style.display = 'none';
+        }
+    });
+});
+
+function loadUserProfile() {
+    const cacheKey = 'user_profile';
+    const cachedData = CACHE.get(cacheKey);
+    
+    if (cachedData) {
+        updateUserProfileUI(cachedData);
+        return;
+    }
+    
+    const token = localStorage.getItem('access_token');
+    
+    axios.get(`${API_BASE_URL}/auth/profile/`, {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    })
+    .then(response => {
+        const user = response.data;
+        CACHE.set(cacheKey, user, 30); // 缓存30分钟
+        updateUserProfileUI(user);
+    })
+    .catch(error => {
+        console.error('加载用户信息失败:', error);
+        showMessage('danger', '加载用户信息失败');
+    });
+}
+
+function updateUserProfileUI(user) {
+    const profile = user.profile;
+    
+    // 更新个人信息
+    document.getElementById('profile-username').textContent = user.username;
+    document.getElementById('profile-role').textContent = `角色：${getRoleText(profile ? profile.role : 'student')}`;
+    document.getElementById('profile-college').textContent = `学院：${profile ? (profile.college || '未设置') : '未设置'}`;
+    
+    // 移除已存在的邮箱元素
+    const existingEmail = document.getElementById('profile-email');
+    if (existingEmail) {
+        existingEmail.remove();
+    }
+    
+    // 更新邮箱显示
+    if (user.email) {
+        const emailElement = document.createElement('p');
+        emailElement.id = 'profile-email';
+        emailElement.className = 'text-muted';
+        emailElement.textContent = `邮箱：${user.email}`;
+        document.getElementById('profile-college').after(emailElement);
+    }
+}
+
+function loadMyEnrollments() {
+    const cacheKey = 'my_enrollments';
+    const cachedData = CACHE.get(cacheKey);
+    
+    if (cachedData) {
+        updateEnrollmentsUI(cachedData);
+        return;
+    }
+    
+    const token = localStorage.getItem('access_token');
+    
+    axios.get(`${API_BASE_URL}/enrollments/`, {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    })
+    .then(response => {
+        const enrollments = response.data.results || response.data;
+        CACHE.set(cacheKey, enrollments, 5); // 缓存5分钟
+        updateEnrollmentsUI(enrollments);
+    })
+    .catch(error => {
+        console.error('加载报名记录失败:', error);
+        const container = document.getElementById('my-enrollments');
+        container.innerHTML = `
+            <div class="text-center py-4">
+                <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                <h5 class="text-danger">加载失败</h5>
+                <p class="text-muted">无法加载报名记录</p>
+                <button class="btn btn-outline-primary" onclick="loadMyEnrollments()">重试</button>
+            </div>
+        `;
+    });
+}
+
+function updateEnrollmentsUI(enrollments) {
+    const container = document.getElementById('my-enrollments');
+    const headerBadge = document.getElementById('enrollment-badge');
+    
+    headerBadge.textContent = `${enrollments.length}个活动`;
+    
+    if (enrollments.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-4">
+                <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">暂无报名记录</h5>
+                <p class="text-muted">您还没有报名任何活动</p>
+                <a href="/activities/" class="btn btn-primary">去浏览活动</a>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="list-group">';
+    enrollments.forEach(enrollment => {
+        const activity = enrollment.activity;
+        const enrollmentTime = new Date(enrollment.enrollment_time).toLocaleString();
+        const statusBadge = enrollment.status === 'registered' ? 
+            '<span class="badge bg-success">已报名</span>' : 
+            '<span class="badge bg-secondary">已取消</span>';
+        
+        html += `
+            <div class="list-group-item">
+                <div class="d-flex w-100 justify-content-between">
+                    <h6 class="mb-1">${activity ? activity.title : '活动已删除'}</h6>
+                    ${statusBadge}
+                </div>
+                <p class="mb-1 text-muted">
+                    <small>报名时间：${enrollmentTime}</small>
+                </p>
+                ${activity ? `
+                    <div class="mt-2">
+                        <small class="text-muted me-3"><i class="fas fa-map-marker-alt me-1"></i> ${activity.location}</small>
+                        <small class="text-muted"><i class="fas fa-clock me-1"></i> ${new Date(activity.start_time).toLocaleDateString()}</small>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    });
+    html += '</div>';
+    
+    container.innerHTML = html;
+}
+
+function loadMyAttendance() {
+    const cacheKey = 'my_attendance';
+    const cachedData = CACHE.get(cacheKey);
+    
+    if (cachedData) {
+        updateAttendanceUI(cachedData);
+        return;
+    }
+    
+    const token = localStorage.getItem('access_token');
+    
+    axios.get(`${API_BASE_URL}/attendance/records/`, {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    })
+    .then(response => {
+        const attendances = response.data.results || response.data;
+        CACHE.set(cacheKey, attendances, 5); // 缓存5分钟
+        updateAttendanceUI(attendances);
+    })
+    .catch(error => {
+        console.error('加载签到记录失败:', error);
+        const container = document.getElementById('my-attendance');
+        container.innerHTML = `
+            <div class="text-center py-4">
+                <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                <h5 class="text-danger">加载失败</h5>
+                <p class="text-muted">无法加载签到记录</p>
+                <button class="btn btn-outline-primary" onclick="loadMyAttendance()">重试</button>
+            </div>
+        `;
+    });
+}
+
+function updateAttendanceUI(attendances) {
+    const container = document.getElementById('my-attendance');
+    const headerBadge = document.getElementById('attendance-badge');
+    
+    headerBadge.textContent = `${attendances.length}次签到`;
+    
+    if (attendances.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-4">
+                <i class="fas fa-qrcode fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">暂无签到记录</h5>
+                <p class="text-muted">您还没有任何签到记录</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="list-group">';
+    attendances.forEach(attendance => {
+        const enrollment = attendance.enrollment;
+        const activity = enrollment ? enrollment.activity : null;
+        const checkinTime = new Date(attendance.checkin_time).toLocaleString();
+        const methodText = attendance.checkin_method === 'qr_code' ? '二维码签到' : '手动签到';
+        
+        html += `
+            <div class="list-group-item">
+                <div class="d-flex w-100 justify-content-between">
+                    <h6 class="mb-1">${activity ? activity.title : '未知活动'}</h6>
+                    <span class="badge bg-info">${methodText}</span>
+                </div>
+                <p class="mb-1 text-muted">
+                    <small>签到时间：${checkinTime}</small>
+                </p>
+                ${activity ? `
+                    <div class="mt-2">
+                        <small class="text-muted me-3"><i class="fas fa-map-marker-alt me-1"></i> ${activity.location}</small>
+                        <small class="text-muted"><i class="fas fa-clock me-1"></i> ${new Date(activity.start_time).toLocaleDateString()}</small>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    });
+    html += '</div>';
+    
+    container.innerHTML = html;
+}
+
+function loadOrganizerActivities() {
+    const cacheKey = 'organizer_activities';
+    const cachedData = CACHE.get(cacheKey);
+    const select = document.getElementById('selectActivity');
+    
+    // 清空选项
+    select.innerHTML = '<option value="">请选择活动...</option>';
+    
+    if (cachedData) {
+        updateOrganizerActivitiesUI(cachedData, select);
+        return;
+    }
+    
+    const token = localStorage.getItem('access_token');
+    
+    axios.get(`${API_BASE_URL}/activities/my/`, {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    })
+    .then(response => {
+        const activities = response.data.results || response.data;
+        CACHE.set(cacheKey, activities, 5); // 缓存5分钟
+        updateOrganizerActivitiesUI(activities, select);
+    })
+    .catch(error => {
+        console.error('加载组织者活动失败:', error);
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = '加载失败';
+        select.appendChild(option);
+        select.disabled = true;
+    });
+}
+
+function updateOrganizerActivitiesUI(activities, select) {
+    activities.forEach(activity => {
+        // 只显示已发布且未结束的活动
+        const now = new Date();
+        const endTime = new Date(activity.end_time);
+        
+        if (activity.status === 'published' && endTime > now) {
+            const option = document.createElement('option');
+            option.value = activity.id;
+            option.textContent = `${activity.title} (${new Date(activity.start_time).toLocaleDateString()})`;
+            select.appendChild(option);
+        }
+    });
+    
+    if (select.options.length === 1) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = '暂无可用活动';
+        select.appendChild(option);
+        select.disabled = true;
+    }
+}
+
+function generateQRCode(activityId) {
+    const token = localStorage.getItem('access_token');
+    const loadingDiv = document.getElementById('qrLoading');
+    const containerDiv = document.getElementById('qrCodeContainer');
+    
+    loadingDiv.style.display = 'block';
+    containerDiv.style.display = 'none';
+    
+    axios.post(`${API_BASE_URL}/attendance/generate-qrcode/`, {
+        activity_id: activityId
+    }, {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    })
+    .then(response => {
+        const data = response.data;
+        
+        // 显示二维码
+        document.getElementById('qrActivityTitle').textContent = data.activity_title;
+        document.getElementById('qrExpiryTime').textContent = new Date(data.expiry_time).toLocaleString();
+        document.getElementById('qrToken').textContent = data.token.substring(0, 20) + '...';
+        
+        const qrCodeImage = document.getElementById('qrCodeImage');
+        qrCodeImage.innerHTML = `<img src="${data.qr_code}" alt="签到二维码" class="img-fluid" style="max-width: 200px;">`;
+        
+        // 设置下载链接
+        const downloadLink = document.getElementById('qrDownloadLink');
+        downloadLink.href = data.qr_code;
+        downloadLink.download = `checkin_qr_${activityId}.png`;
+        
+        loadingDiv.style.display = 'none';
+        containerDiv.style.display = 'block';
+    })
+    .catch(error => {
+        console.error('生成二维码失败:', error);
+        loadingDiv.style.display = 'none';
+        
+        let errorMessage = '生成二维码失败';
+        if (error.response && error.response.data) {
+            if (error.response.data.error) {
+                errorMessage = error.response.data.error;
+            }
+        }
+        
+        showMessage('danger', errorMessage);
+    });
+}
+
+function getRoleText(role) {
+    switch(role) {
+        case 'student': return '学生';
+        case 'organizer': return '活动组织者';
+        case 'admin': return '系统管理员';
+        default: return role;
+    }
+}
+</script>
+{% endblock %}

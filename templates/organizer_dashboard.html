@@ -1,0 +1,288 @@
+{% extends 'base.html' %}
+
+{% block title %}组织者面板 - 校园活动管理系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        transition: transform 0.2s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .activity-card {
+        border-left: 4px solid var(--primary-color);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="fas fa-chart-line me-2"></i>组织者面板</h1>
+                <button class="btn btn-primary" onclick="window.location.href='/create-activity/'">
+                    <i class="fas fa-plus me-1"></i>发布新活动
+                </button>
+            </div>
+
+            <!-- 统计卡片 -->
+            <div class="row g-4 mb-5">
+                <div class="col-md-3">
+                    <div class="stat-card card p-4 bg-gradient-primary text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-white-50">我的活动总数</h6>
+                                <h2 class="mb-0" id="totalActivities">0</h2>
+                            </div>
+                            <div class="bg-white rounded-circle p-3 text-primary">
+                                <i class="fas fa-calendar-alt fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card card p-4 bg-gradient-success text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-white-50">已发布活动</h6>
+                                <h2 class="mb-0" id="publishedActivities">0</h2>
+                            </div>
+                            <div class="bg-white rounded-circle p-3 text-success">
+                                <i class="fas fa-bullhorn fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card card p-4 bg-gradient-warning text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-white-50">总参与人数</h6>
+                                <h2 class="mb-0" id="totalParticipants">0</h2>
+                            </div>
+                            <div class="bg-white rounded-circle p-3 text-warning">
+                                <i class="fas fa-users fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card card p-4 bg-gradient-danger text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-white-50">平均签到率</h6>
+                                <h2 class="mb-0" id="averageCheckinRate">0%</h2>
+                            </div>
+                            <div class="bg-white rounded-circle p-3 text-danger">
+                                <i class="fas fa-clipboard-check fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 快速操作 -->
+            <div class="card mb-5">
+                <div class="card-header">
+                    <h3 class="card-title mb-0"><i class="fas fa-rocket me-2"></i>快速操作</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row g-4">
+                        <div class="col-md-4">
+                            <button class="btn btn-outline-primary btn-lg w-100 d-flex align-items-center justify-content-center" onclick="window.location.href='/manage-activities/'">
+                                <i class="fas fa-edit me-2"></i>管理活动
+                            </button>
+                        </div>
+                        <div class="col-md-4">
+                            <button class="btn btn-outline-success btn-lg w-100 d-flex align-items-center justify-content-center" onclick="window.location.href='/attendance-management/'">
+                                <i class="fas fa-clipboard-check me-2"></i>考勤管理
+                            </button>
+                        </div>
+                        <div class="col-md-4">
+                            <button class="btn btn-outline-info btn-lg w-100 d-flex align-items-center justify-content-center" onclick="window.location.href='/activity-analytics/'">
+                                <i class="fas fa-chart-bar me-2"></i>数据统计
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 最近活动 -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title mb-0"><i class="fas fa-history me-2"></i>最近活动</h3>
+                    <a href="/manage-activities/" class="text-primary float-end">查看全部</a>
+                </div>
+                <div class="card-body">
+                    <div class="list-group" id="recentActivities">
+                        <div class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">加载中...</span>
+                            </div>
+                            <p class="mt-2 text-muted">正在加载活动数据...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        checkAuthStatus();
+        setTimeout(function() {
+            loadDashboardData();
+            loadRecentActivities();
+        }, 100);
+    });
+
+    // 加载仪表盘数据
+    function loadDashboardData() {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            window.location.href = '/login/';
+            return;
+        }
+
+        // 尝试从缓存获取数据
+        const cacheKey = 'dashboard_stats';
+        const cachedData = CACHE.get(cacheKey);
+        if (cachedData) {
+            updateDashboardStats(cachedData);
+            return;
+        }
+
+        axios.get(`${API_BASE_URL}/activities/stats/`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        .then(response => {
+            const stats = response.data;
+            
+            // 缓存数据5分钟
+            CACHE.set(cacheKey, stats, 5);
+            
+            // 更新统计卡片
+            updateDashboardStats(stats);
+        })
+        .catch(error => {
+            console.error('加载仪表盘数据失败:', error);
+        });
+    }
+
+    // 更新仪表盘统计数据
+    function updateDashboardStats(stats) {
+        document.getElementById('totalActivities').textContent = stats.total_activities;
+        document.getElementById('publishedActivities').textContent = stats.published_activities;
+        document.getElementById('totalParticipants').textContent = stats.total_participants;
+        document.getElementById('averageCheckinRate').textContent = stats.average_checkin_rate.toFixed(1) + '%';
+    }
+
+    // 加载最近活动
+    function loadRecentActivities() {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            window.location.href = '/login/';
+            return;
+        }
+
+        // 尝试从缓存获取数据
+        const cacheKey = 'recent_activities';
+        const cachedData = CACHE.get(cacheKey);
+        if (cachedData) {
+            renderRecentActivities(cachedData);
+            return;
+        }
+
+        axios.get(`${API_BASE_URL}/activities/my/?ordering=-created_at&limit=5`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        .then(response => {
+            const activities = response.data.results || response.data;
+            
+            // 缓存数据3分钟
+            CACHE.set(cacheKey, activities, 3);
+            
+            renderRecentActivities(activities);
+        })
+        .catch(error => {
+            console.error('加载最近活动失败:', error);
+            const container = document.getElementById('recentActivities');
+            container.innerHTML = `
+                <div class="text-center py-5">
+                    <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                    <h4 class="text-danger">加载失败</h4>
+                    <p class="text-muted">无法加载活动数据，请检查网络连接</p>
+                    <button class="btn btn-outline-primary" onclick="loadRecentActivities()">重试</button>
+                </div>
+            `;
+        });
+    }
+
+    // 渲染最近活动
+    function renderRecentActivities(activities) {
+        const container = document.getElementById('recentActivities');
+        
+        if (activities.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-5">
+                    <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                    <h4 class="text-muted">暂无活动</h4>
+                    <p class="text-muted">点击上方按钮发布您的第一个活动</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '';
+        activities.forEach(activity => {
+            const startTime = new Date(activity.start_time).toLocaleString();
+            const endTime = new Date(activity.end_time).toLocaleString();
+            const statusClass = activity.status === 'published' ? 'text-success' : 
+                               activity.status === 'ongoing' ? 'text-primary' : 
+                               activity.status === 'completed' ? 'text-info' : 'text-danger';
+            
+            html += `
+                <div class="activity-card list-group-item list-group-item-action">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h5 class="mb-1">${activity.title}</h5>
+                            <p class="mb-2 text-muted">${activity.description.substring(0, 100)}...</p>
+                            <div class="d-flex align-items-center text-sm text-muted">
+                                <i class="fas fa-clock me-1"></i>
+                                <span>${startTime} - ${endTime}</span>
+                                <span class="mx-2">•</span>
+                                <i class="fas fa-map-marker-alt me-1"></i>
+                                <span>${activity.location}</span>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="badge ${statusClass}">${activity.status === 'published' ? '已发布' : activity.status === 'ongoing' ? '进行中' : activity.status === 'completed' ? '已结束' : '已取消'}</span>
+                            <div class="mt-2">
+                                <button class="btn btn-sm btn-outline-primary" onclick="window.location.href='/manage-activity/${activity.id}/'">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-success ms-1" onclick="window.location.href='/attendance-management/?activity_id=${activity.id}'">
+                                    <i class="fas fa-clipboard-check"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+</script>
+{% endblock %}

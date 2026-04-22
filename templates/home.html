@@ -1,0 +1,263 @@
+{% extends 'base.html' %}
+
+{% block title %}首页 - 校园活动管理系统{% endblock %}
+
+{% block content %}
+<!-- 英雄区域 -->
+<section class="hero-section">
+    <div class="container text-center">
+        <h1 class="display-4 fw-bold mb-3">校园活动报名与出勤签到系统</h1>
+        <p class="lead mb-4">基于Python+Django+MySQL开发的校园活动数字化管理平台</p>
+        <div class="d-flex flex-column flex-md-row justify-content-center gap-3">
+            <a href="/activities/" class="btn btn-light btn-lg px-4">
+                <i class="fas fa-calendar-alt me-2"></i>浏览活动
+            </a>
+            <a href="/register/" class="btn btn-outline-light btn-lg px-4">
+                <i class="fas fa-user-plus me-2"></i>立即注册
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- 功能特色 -->
+<section class="mb-5">
+    <div class="container">
+        <h2 class="text-center mb-5">系统特色功能</h2>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card h-100 text-center p-4">
+                    <div class="feature-icon">
+                        <i class="fas fa-calendar-plus"></i>
+                    </div>
+                    <h4 class="mb-3">活动发布与管理</h4>
+                    <p class="text-muted">教师、社团可轻松发布活动，支持在线编辑、状态管理和活动归档</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 text-center p-4">
+                    <div class="feature-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <h4 class="mb-3">在线报名系统</h4>
+                    <p class="text-muted">学生一键报名，自动统计人数，支持报名取消和报名名单导出</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 text-center p-4">
+                    <div class="feature-icon">
+                        <i class="fas fa-qrcode"></i>
+                    </div>
+                    <h4 class="mb-3">动态二维码签到</h4>
+                    <p class="text-muted">基于时间戳的动态二维码，秒级验证，有效防止代签作弊</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- 最新活动 -->
+<section class="mb-5">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="mb-0">最新活动</h2>
+            <a href="/activities/" class="btn btn-outline-primary">查看全部 <i class="fas fa-arrow-right ms-1"></i></a>
+        </div>
+        
+        <div class="row" id="latest-activities">
+            <div class="col-12 text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">加载中...</span>
+                </div>
+                <p class="mt-2 text-muted">正在加载活动数据...</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- 技术栈 -->
+<section class="mb-5">
+    <div class="container">
+        <h2 class="text-center mb-4">技术栈</h2>
+        <div class="row justify-content-center">
+            <div class="col-md-10">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-4 col-md-2 mb-3">
+                                <div class="p-3 border rounded">
+                                    <i class="fab fa-python fa-2x text-primary mb-2"></i>
+                                    <h6 class="mb-0">Python 3.13</h6>
+                                </div>
+                            </div>
+                            <div class="col-4 col-md-2 mb-3">
+                                <div class="p-3 border rounded">
+                                    <i class="fas fa-code fa-2x text-success mb-2"></i>
+                                    <h6 class="mb-0">Django 5.1</h6>
+                                </div>
+                            </div>
+                            <div class="col-4 col-md-2 mb-3">
+                                <div class="p-3 border rounded">
+                                    <i class="fas fa-database fa-2x text-warning mb-2"></i>
+                                    <h6 class="mb-0">MySQL 9.1</h6>
+                                </div>
+                            </div>
+                            <div class="col-4 col-md-2 mb-3">
+                                <div class="p-3 border rounded">
+                                    <i class="fab fa-bootstrap fa-2x text-purple mb-2"></i>
+                                    <h6 class="mb-0">Bootstrap 5</h6>
+                                </div>
+                            </div>
+                            <div class="col-4 col-md-2 mb-3">
+                                <div class="p-3 border rounded">
+                                    <i class="fas fa-qrcode fa-2x text-info mb-2"></i>
+                                    <h6 class="mb-0">QR Code</h6>
+                                </div>
+                            </div>
+                            <div class="col-4 col-md-2 mb-3">
+                                <div class="p-3 border rounded">
+                                    <i class="fas fa-mobile-alt fa-2x text-danger mb-2"></i>
+                                    <h6 class="mb-0">响应式设计</h6>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 加载最新活动 - 使用防抖优化
+const debouncedLoadLatestActivities = PerformanceUtils.debounce(loadLatestActivities, 300);
+
+document.addEventListener('DOMContentLoaded', function() {
+    // 检查认证状态，认证完成后再加载最新活动
+    checkAuthStatus();
+    
+    // 给checkAuthStatus添加一个延迟，确保认证完成后再加载活动
+    setTimeout(function() {
+        debouncedLoadLatestActivities();
+    }, 100);
+});
+
+function loadLatestActivities() {
+    // 使用缓存机制减少重复API调用
+    const cacheKey = 'latest_activities';
+    const cachedData = CACHE.get(cacheKey);
+    
+    if (cachedData) {
+        renderLatestActivities(cachedData);
+        return;
+    }
+    
+    axios.get(`${API_BASE_URL}/activities/?ordering=-created_at&limit=3`)
+        .then(response => {
+            const activities = response.data.results || response.data;
+            
+            // 缓存活动数据，设置过期时间为1分钟
+            const cacheKey = 'latest_activities';
+            CACHE.set(cacheKey, activities, 1);
+            
+            renderLatestActivities(activities);
+        })
+        .catch(error => {
+            console.error('加载活动失败:', error);
+            const container = document.getElementById('latest-activities');
+            container.innerHTML = `
+                <div class="col-12 text-center py-5">
+                    <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                    <p class="text-danger">加载活动数据失败</p>
+                    <button class="btn btn-outline-primary" onclick="loadLatestActivities()">重试</button>
+                </div>
+            `;
+        });
+}
+
+function getStatusClass(status) {
+    switch(status) {
+        case 'published': return 'bg-success';
+        case 'ongoing': return 'bg-primary';
+        case 'cancelled': return 'bg-danger';
+        case 'completed': return 'bg-info';
+        default: return 'bg-secondary';
+    }
+}
+
+function getStatusText(status) {
+    switch(status) {
+        case 'published': return '进行中';
+        case 'ongoing': return '进行中';
+        case 'cancelled': return '已取消';
+        case 'completed': return '已结束';
+        default: return status;
+    }
+}
+
+// 渲染最新活动
+function renderLatestActivities(activities) {
+    const container = document.getElementById('latest-activities');
+    
+    // 检查用户角色，决定是否显示发布活动按钮
+    const token = localStorage.getItem('access_token');
+    const roleInfo = localStorage.getItem('role_info');
+    let showCreateBtn = false;
+    
+    if (token && roleInfo) {
+        try {
+            const roleData = JSON.parse(roleInfo);
+            showCreateBtn = (roleData.role === 'organizer' || roleData.role === 'admin');
+        } catch (e) {
+            console.error('解析角色信息失败:', e);
+        }
+    }
+    
+    if (activities.length === 0) {
+        container.innerHTML = `
+            <div class="col-12 text-center py-5">
+                <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                <p class="text-muted">暂无活动数据</p>
+                ${showCreateBtn ? '<a href="/activities/#createActivityBtn" class="btn btn-primary">去发布新活动</a>' : ''}
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    activities.forEach(activity => {
+        const startTime = new Date(activity.start_time).toLocaleString();
+        const endTime = new Date(activity.end_time).toLocaleString();
+        const statusClass = getStatusClass(activity.status);
+        const statusText = getStatusText(activity.status);
+        
+        html += `
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <span class="badge ${statusClass} activity-status">${statusText}</span>
+                    <div class="card-body">
+                        <h5 class="card-title">${activity.title}</h5>
+                        <p class="card-text text-muted">${activity.description.substring(0, 80)}${activity.description.length > 80 ? '...' : ''}</p>
+                        <div class="mb-3">
+                            <small class="text-muted"><i class="fas fa-map-marker-alt me-1"></i> ${activity.location}</small>
+                        </div>
+                        <div class="mb-3">
+                            <small class="text-muted"><i class="fas fa-clock me-1"></i> ${startTime}</small>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="badge bg-light text-dark">
+                                <i class="fas fa-users me-1"></i> ${activity.current_participants}/${activity.max_participants || '不限'}
+                            </span>
+                            <a href="/activities/#activity-${activity.id}" class="btn btn-sm btn-outline-primary">查看详情</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+</script>
+{% endblock %}

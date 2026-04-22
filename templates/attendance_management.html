@@ -1,0 +1,399 @@
+{% extends 'base.html' %}
+
+{% block title %}考勤管理 - 校园活动管理系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    .table-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        padding: 20px;
+    }
+    
+    .filter-section {
+        margin-bottom: 20px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="fas fa-clipboard-check me-2"></i>考勤管理</h1>
+                <button class="btn btn-primary" onclick="window.location.href='/activities/'">
+                    <i class="fas fa-plus me-1"></i>发布活动
+                </button>
+            </div>
+
+            <div class="table-container">
+                <!-- 筛选条件 -->
+                <div class="filter-section">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <select class="form-select" id="activityFilter">
+                                <option value="">选择活动</option>
+                                <!-- 活动列表将通过JavaScript动态加载 -->
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="statusFilter">
+                                <option value="">所有状态</option>
+                                <option value="checked_in">已签到</option>
+                                <option value="not_checked_in">未签到</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <input type="text" class="form-control" id="studentSearch" placeholder="搜索学生姓名/学号">
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-primary w-100" onclick="filterAttendance()">
+                                <i class="fas fa-search me-1"></i>筛选
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 考勤记录列表 -->
+                <div id="attendanceList">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                        <p class="mt-2 text-muted">正在加载考勤数据...</p>
+                    </div>
+                </div>
+
+                <!-- 分页 -->
+                <nav aria-label="Page navigation">
+                    <ul class="pagination justify-content-center mt-4" id="pagination"></ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentPage = 1;
+    let totalPages = 1;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        checkAuthStatus();
+        setTimeout(function() {
+            loadMyActivitiesForFilter();
+            loadAttendanceRecords(currentPage);
+        }, 100);
+    });
+
+    // 加载我的活动用于筛选
+    function loadMyActivitiesForFilter() {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            showMessage('warning', '请先登录');
+            window.location.href = '/login/';
+            return;
+        }
+
+        // 尝试从缓存获取数据
+        const cacheKey = 'my_activities_list';
+        const cachedData = CACHE.get(cacheKey);
+        if (cachedData) {
+            const select = document.getElementById('activityFilter');
+            cachedData.forEach(activity => {
+                const option = document.createElement('option');
+                option.value = activity.id;
+                option.textContent = activity.title;
+                select.appendChild(option);
+            });
+            return;
+        }
+
+        axios.get(`${API_BASE_URL}/activities/my/`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        .then(response => {
+            const activities = response.data.results || response.data;
+            const select = document.getElementById('activityFilter');
+
+            activities.forEach(activity => {
+                const option = document.createElement('option');
+                option.value = activity.id;
+                option.textContent = activity.title;
+                select.appendChild(option);
+            });
+
+            // 缓存数据5分钟
+            CACHE.set(cacheKey, activities, 5);
+        })
+        .catch(error => {
+            console.error('加载活动列表失败:', error);
+        });
+    }
+
+    // 加载考勤记录
+    function loadAttendanceRecords(page) {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            showMessage('warning', '请先登录');
+            window.location.href = '/login/';
+            return;
+        }
+
+        const container = document.getElementById('attendanceList');
+        container.innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">加载中...</span>
+                </div>
+                <p class="mt-2 text-muted">正在加载考勤数据...</p>
+            </div>
+        `;
+
+        // 添加筛选条件
+        const activityId = document.getElementById('activityFilter').value;
+        const status = document.getElementById('statusFilter').value;
+        const search = document.getElementById('studentSearch').value;
+
+        // 生成缓存键（包含所有筛选条件和页码）
+        const cacheKey = `attendance_records_${activityId || 'all'}_${status || 'all'}_${search || 'all'}`;
+        const cachedData = CACHE.get(cacheKey);
+        if (cachedData) {
+            renderAttendanceRecords(cachedData);
+            // 禁用分页，因为我们获取的是所有数据
+            document.getElementById('pagination').innerHTML = '';
+            return;
+        }
+
+        let apiUrl = `${API_BASE_URL}/attendance/records/`;
+        if (activityId) {
+            // 使用新的API端点获取所有报名人员
+            apiUrl = `${API_BASE_URL}/attendance/activity-attendance/`;
+        }
+
+        const params = {};
+        if (activityId) params.activity_id = activityId;
+        if (status) params.status = status;
+        if (search) params.search = search;
+
+        axios.get(apiUrl, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            params: params
+        })
+        .then(response => {
+            const data = response.data;
+            const records = Array.isArray(data) ? data : (data.results || []);
+            
+            // 应用状态筛选
+            let filteredRecords = records;
+            if (status) {
+                filteredRecords = records.filter(record => record.status === status);
+            }
+            
+            // 应用搜索筛选
+            if (search) {
+                const searchLower = search.toLowerCase();
+                filteredRecords = filteredRecords.filter(record => 
+                    (record.student_name && record.student_name.toLowerCase().includes(searchLower)) ||
+                    (record.student_id && record.student_id.toLowerCase().includes(searchLower))
+                );
+            }
+            
+            renderAttendanceRecords(filteredRecords);
+
+            // 禁用分页，因为我们获取的是所有数据
+            document.getElementById('pagination').innerHTML = '';
+
+            // 缓存数据1分钟（考勤数据变化可能较快）
+            CACHE.set(cacheKey, records, 1);
+        })
+        .catch(error => {
+            console.error('加载考勤记录失败:', error);
+            container.innerHTML = `
+                <div class="text-center py-5">
+                    <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                    <h4 class="text-danger">加载失败</h4>
+                    <p class="text-muted">无法加载考勤数据，请检查网络连接</p>
+                    <button class="btn btn-outline-primary" onclick="loadAttendanceRecords(${page})">重试</button>
+                </div>
+            `;
+        });
+    }
+
+    // 渲染考勤记录
+    function renderAttendanceRecords(records) {
+        const container = document.getElementById('attendanceList');
+
+        if (!records || records.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-5">
+                    <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                    <h4 class="text-muted">暂无考勤记录</h4>
+                    <p class="text-muted">当前筛选条件下没有找到考勤记录</p>
+                </div>
+            `;
+            return;
+        }
+
+        let html = `
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>活动名称</th>
+                            <th>学生姓名</th>
+                            <th>学号</th>
+                            <th>签到时间</th>
+                            <th>签到方式</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        records.forEach(record => {
+            const checkinTime = record.checkin_time ? new Date(record.checkin_time).toLocaleString() : '-';
+            const statusClass = record.status === 'checked_in' ? 'bg-success' : 'bg-secondary';
+            const statusText = record.status === 'checked_in' ? '已签到' : '未签到';
+            let checkinMethod = record.checkin_method || '-';
+            // 转换签到方式显示
+            if (checkinMethod === 'qr_code') {
+                checkinMethod = '二维码签到';
+            } else if (checkinMethod === 'manual') {
+                checkinMethod = '手动签到';
+            }
+
+            html += `
+                <tr>
+                    <td>${record.activity_title || '未知活动'}</td>
+                    <td>${record.student_name || '未知学生'}</td>
+                    <td>${record.student_id || '未知学号'}</td>
+                    <td>${checkinTime}</td>
+                    <td>${checkinMethod}</td>
+                    <td><span class="badge ${statusClass}">${statusText}</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" onclick="viewAttendanceDetail(${record.id})">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger ms-1" onclick="deleteAttendance(${record.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        container.innerHTML = html;
+    }
+
+    // 防抖处理筛选函数
+    const debouncedFilterAttendance = PerformanceUtils.debounce(function() {
+        currentPage = 1;
+        loadAttendanceRecords(currentPage);
+    }, 300);
+
+    // 筛选考勤记录
+    function filterAttendance() {
+        debouncedFilterAttendance();
+    }
+
+    // 为搜索框添加防抖输入监听
+    document.addEventListener('DOMContentLoaded', function() {
+        const studentSearchInput = document.getElementById('studentSearch');
+        studentSearchInput.addEventListener('input', function() {
+            debouncedFilterAttendance();
+        });
+    });
+
+    // 查看考勤详情
+    function viewAttendanceDetail(recordId) {
+        // 实现查看考勤详情功能
+        alert('查看考勤详情功能将在后续版本实现');
+    }
+
+    // 删除考勤记录
+    function deleteAttendance(recordId) {
+        if (confirm('确定要删除这条考勤记录吗？此操作不可恢复。')) {
+            const token = localStorage.getItem('access_token');
+            
+            axios.delete(`${API_BASE_URL}/attendance/records/${recordId}/`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                showMessage('success', '考勤记录删除成功');
+                loadAttendanceRecords(currentPage);
+            })
+            .catch(error => {
+                console.error('删除考勤记录失败:', error);
+                showMessage('error', '删除考勤记录失败，请稍后重试');
+            });
+        }
+    }
+
+    // 渲染分页
+    function renderPagination(current, total) {
+        const container = document.getElementById('pagination');
+
+        if (total <= 1) {
+            container.innerHTML = '';
+            return;
+        }
+
+        let html = '';
+
+        // 上一页按钮
+        html += `
+            <li class="page-item ${current === 1 ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="changePage(${current - 1})">&laquo;</a>
+            </li>
+        `;
+
+        // 页码按钮
+        const startPage = Math.max(1, current - 2);
+        const endPage = Math.min(total, current + 2);
+
+        for (let i = startPage; i <= endPage; i++) {
+            html += `
+                <li class="page-item ${i === current ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="changePage(${i})">${i}</a>
+                </li>
+            `;
+        }
+
+        // 下一页按钮
+        html += `
+            <li class="page-item ${current === total ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="changePage(${current + 1})">&raquo;</a>
+            </li>
+        `;
+
+        container.innerHTML = html;
+    }
+
+    // 切换页面
+    function changePage(page) {
+        if (page < 1 || page > totalPages || page === currentPage) return;
+        currentPage = page;
+        loadAttendanceRecords(page);
+    }
+</script>
+{% endblock %}

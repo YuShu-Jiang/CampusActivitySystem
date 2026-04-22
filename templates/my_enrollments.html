@@ -1,0 +1,209 @@
+{% extends 'base.html' %}
+
+{% block title %}我的报名 - 校园活动管理系统{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-12">
+            <!-- 页面标题 -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-calendar-check me-2"></i>我的报名</h2>
+                <a href="/activities/" class="btn btn-primary">
+                    <i class="fas fa-calendar-alt me-1"></i>浏览更多活动
+                </a>
+            </div>
+            
+            <!-- 报名列表 -->
+            <div class="card">
+                <div class="card-body">
+                    <div id="my-enrollments">
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">加载中...</span>
+                            </div>
+                            <p class="mt-2 text-muted">正在加载报名数据...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    checkAuthStatus();
+    setTimeout(function() {
+        const token = localStorage.getItem('access_token');
+        const userInfo = localStorage.getItem('user_info');
+        
+        if (!token || !userInfo) {
+            showMessage('warning', '请先登录');
+            window.location.href = '/login/?redirect=/my-enrollments/';
+            return;
+        }
+        
+        // 加载报名数据
+        loadMyEnrollments();
+    }, 100);
+});
+
+function loadMyEnrollments() {
+    const cacheKey = 'my_enrollments';
+    const cachedData = CACHE.get(cacheKey);
+    
+    if (cachedData) {
+        updateEnrollmentsUI(cachedData);
+        return;
+    }
+    
+    const token = localStorage.getItem('access_token');
+    
+    axios.get(`${API_BASE_URL}/enrollments/`, {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    })
+    .then(response => {
+        const enrollments = response.data.results || response.data;
+        CACHE.set(cacheKey, enrollments, 5); // 缓存5分钟
+        updateEnrollmentsUI(enrollments);
+    })
+    .catch(error => {
+        console.error('加载报名记录失败:', error);
+        const container = document.getElementById('my-enrollments');
+        container.innerHTML = `
+            <div class="text-center py-4">
+                <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                <h5 class="text-danger">加载失败</h5>
+                <p class="text-muted">无法加载报名记录</p>
+                <button class="btn btn-outline-primary" onclick="loadMyEnrollments()">重试</button>
+            </div>
+        `;
+    });
+}
+
+function updateEnrollmentsUI(enrollments) {
+    const container = document.getElementById('my-enrollments');
+    
+    if (enrollments.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-5">
+                <i class="fas fa-calendar-times fa-4x text-muted mb-4"></i>
+                <h3 class="text-muted">暂无报名记录</h3>
+                <p class="text-muted mt-2">您还没有报名任何活动</p>
+                <a href="/activities/" class="btn btn-primary mt-3">
+                    <i class="fas fa-calendar-alt me-1"></i>去浏览活动
+                </a>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = `
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>活动名称</th>
+                        <th>报名时间</th>
+                        <th>状态</th>
+                        <th>活动地点</th>
+                        <th>活动时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    enrollments.forEach(enrollment => {
+        const activity = enrollment.activity;
+        const enrollmentTime = new Date(enrollment.enrollment_time).toLocaleString();
+        const activityTime = new Date(activity.start_time).toLocaleString('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        const statusText = enrollment.status === 'registered' ? '已报名' : '已取消';
+        const statusClass = enrollment.status === 'registered' ? 'bg-success' : 'bg-secondary';
+        
+        html += `
+            <tr>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <img src="${activity.cover_image || '/static/images/default-activity.jpg'}" 
+                             onerror="this.src='/static/images/default-activity.jpg'" 
+                             class="rounded-circle" 
+                             width="40" 
+                             height="40" 
+                             alt="活动封面" 
+                             style="object-fit: cover;">
+                        <a href="/activities/#activity-${activity.id}" class="ms-2 text-decoration-none text-dark fw-medium">
+                            ${activity.title}
+                        </a>
+                    </div>
+                </td>
+                <td>${enrollmentTime}</td>
+                <td>
+                    <span class="badge ${statusClass}">${statusText}</span>
+                </td>
+                <td>${activity.location}</td>
+                <td>${activityTime}</td>
+                <td>
+                    ${enrollment.status === 'registered' ? `
+                        <button class="btn btn-outline-danger btn-sm" onclick="cancelEnrollment(${enrollment.id}, ${activity.id})">
+                            <i class="fas fa-times me-1"></i>取消报名
+                        </button>
+                    ` : ''}
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += `
+                </tbody>
+            </table>
+        </div>
+        <div class="text-muted mt-3">
+            共${enrollments.length}个活动
+        </div>
+    `;
+    
+    container.innerHTML = html;
+}
+
+function cancelEnrollment(enrollmentId, activityId) {
+    if (!confirm('确定要取消该活动的报名吗？')) {
+        return;
+    }
+    
+    const token = localStorage.getItem('access_token');
+    
+    axios.patch(`${API_BASE_URL}/enrollments/${enrollmentId}/`, {
+        status: 'cancelled'
+    }, {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    })
+    .then(response => {
+        showMessage('success', '取消报名成功');
+        // 清除缓存并重新加载数据
+        CACHE.remove('my_enrollments');
+        loadMyEnrollments();
+        // 同时更新其他页面的缓存
+        CACHE.remove('activities_list');
+    })
+    .catch(error => {
+        console.error('取消报名失败:', error);
+        showMessage('danger', '取消报名失败，请重试');
+    });
+}
+</script>
+{% endblock %}
