@@ -8,6 +8,7 @@ import io
 import base64
 from datetime import timedelta
 from django.contrib.auth.models import User
+from django.core.cache import cache
 from .models import Attendance
 from .serializers import AttendanceSerializer
 from enrollments.models import Enrollment
@@ -53,6 +54,10 @@ class QRCodeGenerateView(APIView):
         # 生成唯一令牌（有效时间10分钟，6位）
         token = secrets.token_hex(3)  # 6位十六进制字符串
         expiry_time = now + timedelta(minutes=10)
+        
+        # 将令牌存储到缓存中，设置10分钟过期时间
+        cache_key = f"qr_token_{activity_id}_{token}"
+        cache.set(cache_key, True, 600)  # 600秒 = 10分钟
 
         # 生成二维码
         checkin_url = f"http://127.0.0.1:8000/api/attendance/checkin/?activity_id={activity_id}&token={token}"
@@ -113,6 +118,14 @@ class QRCodeCheckinView(APIView):
                 {"error": "活动不存在"},
                 status=status.HTTP_404_NOT_FOUND
             )
+        
+        # 验证令牌是否有效
+        cache_key = f"qr_token_{activity_id}_{token}"
+        if not cache.get(cache_key):
+            return Response(
+                {"error": "二维码已过期或无效"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         # 检查用户是否已报名
         enrollment = Enrollment.objects.filter(
@@ -142,6 +155,10 @@ class QRCodeCheckinView(APIView):
             ip_address=self.get_client_ip(request),
             qr_token=token
         )
+        
+        # 签到成功后删除令牌，确保每个令牌只能使用一次
+        cache_key = f"qr_token_{activity_id}_{token}"
+        cache.delete(cache_key)
 
         return Response({
             'success': True,
