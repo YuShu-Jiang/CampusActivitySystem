@@ -215,11 +215,6 @@ function renderMyActivities(activities) {
                         <button class="btn btn-sm btn-outline-warning me-1" onclick="editActivity(${activity.id})">
                             <i class="fas fa-edit"></i>
                         </button>
-                        ${activity.status !== 'cancelled' ? `
-                            <button class="btn btn-sm btn-outline-danger me-1" onclick="cancelActivity(${activity.id}, '${activity.title}')">
-                                <i class="fas fa-ban"></i>
-                            </button>
-                        ` : ''}
                         <button class="btn btn-sm btn-outline-danger" onclick="deleteActivity(${activity.id}, '${activity.title}')">
                             <i class="fas fa-trash"></i>
                         </button>
@@ -599,95 +594,8 @@ function showQRCodeModal(data) {
     modal.show();
 }
 
-// 更新活动状态
-function updateActivityStatus(activityId, newStatus) {
-    const token = localStorage.getItem('access_token');
-    if (!token) {
-        showMessage('warning', '请先登录');
-        window.location.href = '/login/';
-        return;
-    }
 
-    // 发送PUT请求更新活动状态
-    axios.put(`${API_BASE_URL}/activities/${activityId}/`, {
-        status: newStatus
-    }, {
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => {
-        showMessage('success', '活动状态更新成功');
-        
-        // 清除所有相关缓存
-        CACHE.remove('my_activities_list');
-        CACHE.remove('latest_activities');
-        
-        // 清除活动中心的所有页面缓存
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key.startsWith('cache_activities_page_')) {
-                localStorage.removeItem(key);
-                i--; // 因为删除后索引会变化
-            }
-        }
-        
-        // 重新加载活动列表
-        loadMyActivities();
-    })
-    .catch(error => {
-        console.error('更新活动状态失败:', error);
-        showMessage('danger', '更新活动状态失败，请重试');
-        
-        // 重新加载活动列表，恢复原来的状态
-        loadMyActivities();
-    });
-}
 
-// 取消发布活动
-function cancelActivity(activityId, activityTitle) {
-    if (confirm(`确定要取消活动"${activityTitle}"吗？此操作将把活动状态改为已取消，且不可恢复。`)) {
-        const token = localStorage.getItem('access_token');
-        if (!token) {
-            showMessage('warning', '请先登录');
-            window.location.href = '/login/';
-            return;
-        }
 
-        // 发送PUT请求将活动状态改为已取消
-        axios.put(`${API_BASE_URL}/activities/${activityId}/`, {
-            status: 'cancelled'
-        }, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => {
-            showMessage('success', '活动已取消');
-            
-            // 清除所有相关缓存
-            CACHE.remove('my_activities_list');
-            CACHE.remove('latest_activities');
-            
-            // 清除活动中心的所有页面缓存
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key.startsWith('cache_activities_page_')) {
-                    localStorage.removeItem(key);
-                    i--; // 因为删除后索引会变化
-                }
-            }
-            
-            // 重新加载活动列表
-            loadMyActivities();
-        })
-        .catch(error => {
-            console.error('取消活动失败:', error);
-            showMessage('danger', '取消活动失败，请重试');
-        });
-    }
-}
 </script>
 {% endblock %}

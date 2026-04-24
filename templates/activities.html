@@ -634,11 +634,15 @@
                                     <i class="fas fa-info-circle me-1"></i>查看详情
                                 </button>
                                 ${window.roleData && (window.roleData.role === 'admin' || window.roleData.role === 'organizer' && parseInt(activity.organizer.id) === parseInt(window.roleData.id)) ? `
-                                    ${activity.status !== 'cancelled' ? `
+                                    <div class="d-flex">
                                         <button class="btn btn-warning btn-sm ms-2"
-                                                onclick="cancelActivity(${activity.id})"><i class="fas fa-ban me-1"></i>取消活动
+                                                onclick="cancelActivity(${activity.id})" 
+                                                ${activity.status === 'cancelled' ? 'disabled' : ''}><i class="fas fa-times-circle me-1"></i>取消活动
                                         </button>
-                                    ` : ''}
+                                        <button class="btn btn-danger btn-sm ms-2"
+                                                onclick="deleteActivity(${activity.id})"><i class="fas fa-trash-alt me-1"></i>删除
+                                        </button>
+                                    </div>
                                 ` : ''}
                                 <button class="btn btn-primary btn-sm enroll-btn"
                                         onclick="enrollActivity(${activity.id})"
@@ -849,8 +853,8 @@
 
             showLoading(true);
 
-            // 发送PUT请求将活动状态改为已取消
-            axios.put(`${API_BASE_URL}/activities/${activityId}/`, {
+            // 发送PATCH请求将活动状态改为已取消
+            axios.patch(`${API_BASE_URL}/activities/${activityId}/`, {
                 status: 'cancelled'
             }, {
                 headers: {
@@ -887,7 +891,13 @@
                     } else if (error.response.status === 404) {
                         errorMessage = '活动不存在。';
                     } else if (error.response.data) {
-                        errorMessage = '取消活动失败: ' + (error.response.data.detail || error.response.data);
+                        if (error.response.data.detail) {
+                            errorMessage = '取消活动失败: ' + error.response.data.detail;
+                        } else if (typeof error.response.data === 'string') {
+                            errorMessage = '取消活动失败: ' + error.response.data;
+                        } else {
+                            errorMessage = '取消活动失败: 服务器返回错误数据';
+                        }
                     }
                 }
                 alert(errorMessage);
@@ -1336,6 +1346,9 @@
                         enrollActivity(activityId);
                     };
                 }
+                
+                // 重新加载活动列表，确保活动人数能够及时更新
+                loadActivities(currentPage);
             })
             .catch(error => {
                 showLoading(false);
@@ -1406,6 +1419,9 @@
                         enrollActivity(activityId);
                     };
                 }
+                
+                // 重新加载活动列表，确保活动人数能够及时更新
+                loadActivities(currentPage);
             })
             .catch(error => {
                 showLoading(false);

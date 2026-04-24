@@ -121,6 +121,28 @@ class EnrollmentDetailView(generics.RetrieveUpdateDestroyAPIView):
             self.permission_denied(self.request, message="无权操作此报名记录")
         return enrollment
 
+    def update(self, request, *args, **kwargs):
+        enrollment = self.get_object()
+        activity = enrollment.activity
+        old_status = enrollment.status
+        
+        # 调用父类的update方法
+        response = super().update(request, *args, **kwargs)
+        
+        # 检查状态是否从registered变为cancelled
+        if old_status == 'registered' and enrollment.status == 'cancelled':
+            # 更新活动报名人数
+            if activity.current_participants > 0:
+                activity.current_participants -= 1
+                activity.save()
+        # 检查状态是否从cancelled变为registered
+        elif old_status == 'cancelled' and enrollment.status == 'registered':
+            # 更新活动报名人数
+            activity.current_participants += 1
+            activity.save()
+        
+        return response
+
     def destroy(self, request, *args, **kwargs):
         enrollment = self.get_object()
         activity = enrollment.activity

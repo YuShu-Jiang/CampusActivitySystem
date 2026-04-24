@@ -221,13 +221,13 @@
                     <li class="nav-item organizer-menu" style="display: none;">
                         <a class="nav-link" href="/attendance-management/"><i class="fas fa-clipboard-check me-1"></i>考勤管理</a>
                     </li>
-                    <li class="nav-item organizer-menu" style="display: none;">
-                        <a class="nav-link" href="/activity-analytics/"><i class="fas fa-chart-bar me-1"></i>数据统计</a>
-                    </li>
 
                     <!-- 管理员专属菜单 -->
                     <li class="nav-item admin-menu" style="display: none;">
                         <span class="nav-divider"></span>
+                    </li>
+                    <li class="nav-item admin-menu" style="display: none;">
+                        <a class="nav-link" href="/activity-analytics/"><i class="fas fa-chart-bar me-1"></i>数据统计</a>
                     </li>
                     <li class="nav-item admin-menu" style="display: none;">
                         <a class="nav-link" href="/admin/"><i class="fas fa-shield-alt me-1"></i>管理员面板</a>
@@ -793,10 +793,18 @@
                     }
 
                     if (href.includes('/my-activities') || href.includes('/attendance-management') ||
-                        href.includes('/organizer-dashboard') || href.includes('/activity-analytics')) {
+                        href.includes('/organizer-dashboard')) {
                         if (!checkPageAccess(['organizer', 'admin'])) {
                             e.preventDefault();
                             showMessage('warning', '此功能仅限活动组织者使用');
+                            return false;
+                        }
+                    }
+                    
+                    if (href.includes('/activity-analytics')) {
+                        if (!checkPageAccess(['admin'])) {
+                            e.preventDefault();
+                            showMessage('warning', '此功能仅限系统管理员使用');
                             return false;
                         }
                     }

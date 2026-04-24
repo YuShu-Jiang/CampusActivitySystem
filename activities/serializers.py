@@ -78,6 +78,10 @@ class ActivitySerializer(serializers.ModelSerializer):
         return data
 
     def validate(self, data):
+        # 如果只更新status字段为'cancelled'，不需要验证其他字段
+        if len(data) == 1 and 'status' in data and data['status'] == 'cancelled':
+            return data
+
         # 验证必要字段是否存在
         required_fields = ['end_time', 'start_time', 'registration_deadline']
         for field in required_fields:

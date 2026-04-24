@@ -113,7 +113,6 @@ function updateEnrollmentsUI(enrollments) {
                         <th>状态</th>
                         <th>活动地点</th>
                         <th>活动时间</th>
-                        <th>操作</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -155,13 +154,6 @@ function updateEnrollmentsUI(enrollments) {
                 </td>
                 <td>${activity.location}</td>
                 <td>${activityTime}</td>
-                <td>
-                    ${enrollment.status === 'registered' ? `
-                        <button class="btn btn-outline-danger btn-sm" onclick="cancelEnrollment(${enrollment.id}, ${activity.id})">
-                            <i class="fas fa-times me-1"></i>取消报名
-                        </button>
-                    ` : ''}
-                </td>
             </tr>
         `;
     });
@@ -178,32 +170,6 @@ function updateEnrollmentsUI(enrollments) {
     container.innerHTML = html;
 }
 
-function cancelEnrollment(enrollmentId, activityId) {
-    if (!confirm('确定要取消该活动的报名吗？')) {
-        return;
-    }
-    
-    const token = localStorage.getItem('access_token');
-    
-    axios.patch(`${API_BASE_URL}/enrollments/${enrollmentId}/`, {
-        status: 'cancelled'
-    }, {
-        headers: {
-            'Authorization': `Bearer ${token}`
-        }
-    })
-    .then(response => {
-        showMessage('success', '取消报名成功');
-        // 清除缓存并重新加载数据
-        CACHE.remove('my_enrollments');
-        loadMyEnrollments();
-        // 同时更新其他页面的缓存
-        CACHE.remove('activities_list');
-    })
-    .catch(error => {
-        console.error('取消报名失败:', error);
-        showMessage('danger', '取消报名失败，请重试');
-    });
-}
+
 </script>
 {% endblock %}

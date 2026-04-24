@@ -258,6 +258,10 @@ class PlatformStatsView(generics.GenericAPIView):
         checkin_method_labels = [checkin_method_stats[code]['name'] for code in checkin_method_stats]
         checkin_method_data = [checkin_method_stats[code]['count'] for code in checkin_method_stats]
         
+        # 报名状态分布饼图
+        enrollment_status_labels = ['已报名', '已取消']
+        enrollment_status_data = [registered_enrollments, cancelled_enrollments]
+        
         # 准备返回数据
         response_data = {
             'overview': {
@@ -291,6 +295,12 @@ class PlatformStatsView(generics.GenericAPIView):
                 'checkin_method_distribution': {
                     'labels': checkin_method_labels,
                     'data': checkin_method_data
+                },
+                'enrollment_status_distribution': {
+                    'labels': enrollment_status_labels,
+                    'data': enrollment_status_data,
+                    'registered': registered_enrollments,
+                    'cancelled': cancelled_enrollments
                 }
             }
         }
