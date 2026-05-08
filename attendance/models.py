@@ -13,6 +13,7 @@ class Attendance(models.Model):
     device_info = models.CharField(max_length=255, blank=True, null=True, verbose_name='设备信息')
     ip_address = models.CharField(max_length=50, blank=True, null=True, verbose_name='IP地址')
     qr_token = models.CharField(max_length=100, blank=True, null=True, verbose_name='二维码令牌')
+    device_id = models.CharField(max_length=100, blank=True, null=True, verbose_name='设备标识')
 
     class Meta:
         db_table = 'attendance'

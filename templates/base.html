@@ -366,6 +366,18 @@
             }
         };
 
+        // 获取或生成设备唯一标识
+        const DEVICE_UTILS = {
+            getDeviceId: function() {
+                let deviceId = localStorage.getItem('campus_device_id');
+                if (!deviceId) {
+                    deviceId = 'dev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    localStorage.setItem('campus_device_id', deviceId);
+                }
+                return deviceId;
+            }
+        };
+
         // 性能优化工具函数
         const PerformanceUtils = {
             // 防抖函数

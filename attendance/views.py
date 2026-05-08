@@ -104,6 +104,7 @@ class QRCodeCheckinView(APIView):
     def post(self, request):
         token = request.data.get('token')
         activity_id = request.data.get('activity_id')
+        device_id = request.data.get('device_id')
 
         if not token or not activity_id:
             return Response(
@@ -147,13 +148,26 @@ class QRCodeCheckinView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # 同一设备在同一活动中只能签到一次
+        if device_id:
+            device_exists = Attendance.objects.filter(
+                enrollment__activity_id=activity_id,
+                device_id=device_id
+            ).exists()
+            if device_exists:
+                return Response(
+                    {"error": "该设备已在此活动中签到，无法重复使用"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
         # 创建签到记录
         attendance = Attendance.objects.create(
             enrollment=enrollment,
             checkin_method='qr_code',
             device_info=request.META.get('HTTP_USER_AGENT', ''),
             ip_address=self.get_client_ip(request),
-            qr_token=token
+            qr_token=token,
+            device_id=device_id
         )
         
         # 签到成功后删除令牌，确保每个令牌只能使用一次
@@ -164,7 +178,8 @@ class QRCodeCheckinView(APIView):
             'success': True,
             'message': '签到成功',
             'checkin_time': attendance.checkin_time,
-            'activity_title': activity.title
+            'activity_title': activity.title,
+            'device_id': device_id
         }, status=status.HTTP_200_OK)
 
     def get_client_ip(self, request):

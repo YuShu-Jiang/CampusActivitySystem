@@ -171,7 +171,8 @@ function checkin(activityId, token) {
     
     axios.post(`${API_BASE_URL}/attendance/checkin/`, {
         activity_id: activityId,
-        token: token
+        token: token,
+        device_id: DEVICE_UTILS.getDeviceId()
     }, {
         headers: {
             'Authorization': `Bearer ${accessToken}`
@@ -219,7 +220,8 @@ function manualCheckin(activityId, token) {
     
     axios.post(`${API_BASE_URL}/attendance/checkin/`, {
         activity_id: activityId,
-        token: token
+        token: token,
+        device_id: DEVICE_UTILS.getDeviceId()
     }, {
         headers: {
             'Authorization': `Bearer ${accessToken}`
